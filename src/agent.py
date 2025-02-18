@@ -12,7 +12,8 @@ import src.actions.twitter_actions
 import src.actions.echochamber_actions
 import src.actions.solana_actions
 from datetime import datetime
-
+from typing import Optional
+from src.action_handler import action_registry
 REQUIRED_FIELDS = ["name", "bio", "traits", "examples", "loop_delay", "config", "tasks"]
 
 logger = logging.getLogger("agent")
@@ -135,14 +136,14 @@ class ZerePyAgent:
         
         return weights
 
-    def prompt_llm(self, prompt: str, system_prompt: str = None) -> str:
+    def prompt_llm(self, prompt: str, system_prompt: str = None, stop: Optional[list[str]] = None) -> str:
         """Generate text using the configured LLM provider"""
         system_prompt = system_prompt or self._construct_system_prompt()
 
         return self.connection_manager.perform_action(
             connection_name=self.model_provider,
             action_name="generate-text",
-            params=[prompt, system_prompt]
+            params=[prompt, system_prompt, stop]
         )
 
     def perform_action(self, connection: str, action: str, **kwargs) -> None:
@@ -198,12 +199,31 @@ class ZerePyAgent:
 
                     # CHOOSE AN ACTION
                     # TODO: Add agentic action selection
-                    
-                    action = self.select_action(use_time_based_weights=self.use_time_based_weights)
-                    action_name = action["name"]
+                    n_calls, n_badcalls = 0, 0
+                    prompt = ""
+                    for i in range(1, 3):
+                        n_calls += 1
+                        thought_action = self.prompt_llm(prompt= prompt + f"Thought {i}:",stop=[f"\nObservation {i}:"])
+                        logger.info(f"thought_action {thought_action}...")
+                        try:
+                            thought, action_name = thought_action.strip().split(f"\nAction {i}: ")
+                        except:
+                            logger.info(f'ohh... {thought_action}')
+                            n_badcalls += 1
+                            n_calls += 1
+                            thought = thought_action.strip().split('\n')[0]
+                            action_name = self.prompt_llm(prompt = prompt + f"Thought {i}: {thought}\nAction {i}:", stop=[f"\n"]).strip()
+                        obs = execute_action(self, action_name)
+                        step_str = f"Thought {i}: {thought}\nAction {i}: {action_name}\nObservation {i}: {obs}\n"
+                        prompt += step_str
+                        logger.info(f"{prompt}...")
+                        if action_name == "post-tweet":
+                            break
+                    # action = self.select_action(use_time_based_weights=self.use_time_based_weights)
+                    # action_name = action["name"]
 
                     # PERFORM ACTION
-                    success = execute_action(self, action_name)
+                    # success = execute_action(self, action_name)
 
                     logger.info(f"\n⏳ Waiting {self.loop_delay} seconds before next loop...")
                     print_h_bar()
