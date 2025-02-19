@@ -20,6 +20,7 @@ from src.connections.xai_connection import XAIConnection
 from src.connections.ethereum_connection import EthereumConnection
 from src.connections.together_connection import TogetherAIConnection
 from src.connections.evm_connection import EVMConnection
+from src.connections.supabase_connection import SupabaseConnection
 
 logger = logging.getLogger("connection_manager")
 
