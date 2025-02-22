@@ -1,21 +1,20 @@
 import json
 import logging
-import os
 import random
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from dotenv import load_dotenv
-
 from src.action_handler import execute_action
 from src.connection_manager import ConnectionManager
 from src.helpers import print_h_bar
 
-REQUIRED_FIELDS = ["name", "bio", "traits", "examples", "loop_delay", "config", "tasks"]
+REQUIRED_FIELDS = ["name", "bio", "traits",
+                   "examples", "loop_delay", "config", "tasks"]
 
 logger = logging.getLogger("agent")
+
 
 class ZerePyAgent:
     def __init__(
@@ -26,34 +25,20 @@ class ZerePyAgent:
             agent_path = Path("agents") / f"{agent_name}.json"
             agent_dict = json.load(open(agent_path, "r"))
 
-            missing_fields = [field for field in REQUIRED_FIELDS if field not in agent_dict]
+            missing_fields = [
+                field for field in REQUIRED_FIELDS if field not in agent_dict]
             if missing_fields:
-                raise KeyError(f"Missing required fields: {', '.join(missing_fields)}")
+                raise KeyError(
+                    f"Missing required fields: {', '.join(missing_fields)}")
 
             self.name = agent_dict["name"]
             self.bio = agent_dict["bio"]
             self.traits = agent_dict["traits"]
             self.examples = agent_dict["examples"]
-            self.example_accounts = agent_dict["example_accounts"]
             self.loop_delay = agent_dict["loop_delay"]
             self.connection_manager = ConnectionManager(agent_dict["config"])
             self.use_time_based_weights = agent_dict["use_time_based_weights"]
             self.time_based_multipliers = agent_dict["time_based_multipliers"]
-
-            has_twitter_tasks = any("tweet" in task["name"] for task in agent_dict.get("tasks", []))
-            
-            twitter_config = next((config for config in agent_dict["config"] if config["name"] == "twitter"), None)
-            
-            if has_twitter_tasks and twitter_config:
-                self.tweet_interval = twitter_config.get("tweet_interval", 900)
-                self.own_tweet_replies_count = twitter_config.get("own_tweet_replies_count", 2)
-
-            # Extract Echochambers config
-            echochambers_config = next((config for config in agent_dict["config"] if config["name"] == "echochambers"), None)
-            if echochambers_config:
-                self.echochambers_message_interval = echochambers_config.get("message_interval", 60)
-                self.echochambers_history_count = echochambers_config.get("history_read_count", 50)
-
             self.is_llm_set = False
 
             # Cache for system prompt
@@ -66,7 +51,6 @@ class ZerePyAgent:
 
             # Set up empty agent state
             self.state = {}
-
         except Exception as e:
             logger.error("Could not load ZerePy agent")
             raise e
@@ -78,13 +62,6 @@ class ZerePyAgent:
             raise ValueError("No configured LLM provider found")
         self.model_provider = llm_providers[0]
 
-        # Load Twitter username for self-reply detection if Twitter tasks exist
-        if any("tweet" in task["name"] for task in self.tasks):
-            load_dotenv()
-            self.username = os.getenv('TWITTER_USERNAME', '').lower()
-            if not self.username:
-                logger.warning("Twitter username not found, some Twitter functionalities may be limited")
-
     def _construct_system_prompt(self) -> str:
         """Construct the system prompt from agent configuration"""
         if self._system_prompt is None:
@@ -95,28 +72,20 @@ class ZerePyAgent:
                 prompt_parts.append("\nYour key traits are:")
                 prompt_parts.extend(f"- {trait}" for trait in self.traits)
 
-            if self.examples or self.example_accounts:
-                prompt_parts.append("\nHere are some examples of your style (Please avoid repeating any of these):")
+            if self.examples:
+                prompt_parts.append(
+                    "\nHere are some examples of your style (Please avoid repeating any of these):")
                 if self.examples:
-                    prompt_parts.extend(f"- {example}" for example in self.examples)
-
-                if self.example_accounts:
-                    for example_account in self.example_accounts:
-                        tweets = self.connection_manager.perform_action(
-                            connection_name="twitter",
-                            action_name="get-latest-tweets",
-                            params=[example_account]
-                        )
-                        if tweets:
-                            prompt_parts.extend(f"- {tweet['text']}" for tweet in tweets)
+                    prompt_parts.extend(
+                        f"- {example}" for example in self.examples)
 
             self._system_prompt = "\n".join(prompt_parts)
 
         return self._system_prompt
-    
+
     def _adjust_weights_for_time(self, current_hour: int, task_weights: list) -> list:
         weights = task_weights.copy()
-        
+
         # Reduce tweet frequency during night hours (1 AM - 5 AM)
         if 1 <= current_hour <= 5:
             weights = [
@@ -124,7 +93,7 @@ class ZerePyAgent:
                 else weight
                 for weight, task in zip(weights, self.tasks)
             ]
-            
+
         # Increase engagement frequency during day hours (8 AM - 8 PM) (peak hours?🤔)
         if 8 <= current_hour <= 20:
             weights = [
@@ -132,7 +101,7 @@ class ZerePyAgent:
                 else weight
                 for weight, task in zip(weights, self.tasks)
             ]
-        
+
         return weights
 
     def prompt_llm(self, prompt: str, system_prompt: str = None, stop: Optional[list[str]] = None) -> str:
@@ -147,14 +116,15 @@ class ZerePyAgent:
 
     def perform_action(self, connection: str, action: str, **kwargs) -> None:
         return self.connection_manager.perform_action(connection, action, **kwargs)
-    
+
     def select_action(self, use_time_based_weights: bool = False) -> dict:
         task_weights = [weight for weight in self.task_weights.copy()]
-        
+
         if use_time_based_weights:
             current_hour = datetime.now().hour
-            task_weights = self._adjust_weights_for_time(current_hour, task_weights)
-        
+            task_weights = self._adjust_weights_for_time(
+                current_hour, task_weights)
+
         return random.choices(self.tasks, weights=task_weights, k=1)[0]
 
     def loop(self):
@@ -180,7 +150,6 @@ class ZerePyAgent:
             while True:
                 success = False
                 try:
-
                     n_calls, n_badcalls = 0, 0
                     self.steps = 0
                     self.answer = None
@@ -192,7 +161,8 @@ class ZerePyAgent:
                                                          stop=[f"Observation {i}:"])
                         logger.info(f"thought_action {thought_action}...")
                         try:
-                            thought, action_name = thought_action.strip().split(f"Action {i}:")
+                            thought, action_name = thought_action.strip().split(
+                                f"Action {i}:")
                             action_name = action_name.strip()
                         except:
                             logger.info(f'ohh... {thought_action}')
@@ -202,8 +172,10 @@ class ZerePyAgent:
                             action_name = self.prompt_llm(prompt=prompt + f"Thought {i}: {thought}\nAction {i}:",
                                                           system_prompt=system_prompt,
                                                           stop=[f"\n"]).strip()
-                        logger.info(f"action_name {action_name[0], action_name[0].lower(), action_name[1:]}...")
-                        obs, r, done, info = self.env(action_name[0].lower() + action_name[1:])
+                        logger.info(
+                            f"action_name {action_name[0], action_name[0].lower(), action_name[1:]}...")
+                        obs, r, done, info = self.env(
+                            action_name[0].lower() + action_name[1:])
                         logger.info(f"return env {obs, r, done, info}...")
                         step_str = f"Thought {i}: {thought}\nAction {i}: {action_name}\nObservation {i}: {obs}\n"
                         prompt += step_str
@@ -213,15 +185,16 @@ class ZerePyAgent:
                     if not done:
                         obs, r, done, info = self.env("finish[]")
 
-                    logger.info(f"\n⏳ Waiting {self.loop_delay} seconds before next loop...")
+                    logger.info(
+                        f"\n⏳ Waiting {self.loop_delay} seconds before next loop...")
                     print_h_bar()
                     time.sleep(self.loop_delay if success else 60)
 
                 except Exception as e:
                     logger.error(f"\n❌ Error in agent loop iteration: {e}")
-                    logger.info(f"⏳ Waiting {self.loop_delay} seconds before retrying...")
+                    logger.info(
+                        f"⏳ Waiting {self.loop_delay} seconds before retrying...")
                     time.sleep(self.loop_delay)
-
         except KeyboardInterrupt:
             logger.info("\n🛑 Agent loop stopped by user.")
             return
@@ -238,7 +211,6 @@ class ZerePyAgent:
         logger.info("\n🚀 Starting prompt agent")
 
         try:
-
             # CHOOSE AN ACTION
             # TODO: Add agentic action selection
             n_calls, n_badcalls = 0, 0
@@ -251,7 +223,8 @@ class ZerePyAgent:
                                                  stop=[f"Observation {i}:"])
                 logger.info(f"thought_action {thought_action}...")
                 try:
-                    thought, action_name = thought_action.strip().split(f"Action {i}:")
+                    thought, action_name = thought_action.strip().split(
+                        f"Action {i}:")
                     action_name = action_name.strip()
                 except:
                     logger.info(f'ohh... {thought_action}')
@@ -261,8 +234,10 @@ class ZerePyAgent:
                     action_name = self.prompt_llm(prompt=prompt + f"Thought {i}: {thought}\nAction {i}:",
                                                   system_prompt=system_prompt,
                                                   stop=[f"\n"]).strip()
-                logger.info(f"action_name {action_name[0], action_name[0].lower(), action_name[1:]}...")
-                obs, r, done, info = self.env(action_name[0].lower() + action_name[1:])
+                logger.info(
+                    f"action_name {action_name[0], action_name[0].lower(), action_name[1:]}...")
+                obs, r, done, info = self.env(
+                    action_name[0].lower() + action_name[1:])
                 logger.info(f"return env {obs, r, done, info}...")
                 step_str = f"Thought {i}: {thought}\nAction {i}: {action_name}\nObservation {i}: {obs}\n"
                 prompt += step_str
@@ -272,7 +247,6 @@ class ZerePyAgent:
             if not done:
                 obs, r, done, info = self.env("finish[]")
             return self.answer
-
         except KeyboardInterrupt:
             logger.info("\n🛑 Agent loop stopped by user.")
             return
