@@ -50,7 +50,8 @@ class OpenAIConnection(BaseConnection):
                 parameters=[
                     ActionParameter("prompt", True, str, "The input prompt for text generation"),
                     ActionParameter("system_prompt", True, str, "System prompt to guide the model"),
-                    ActionParameter("model", False, str, "Model to use for generation")
+                    ActionParameter("stop", False, list[str], "Stop sequences"),
+                    ActionParameter("model", False, str, "Model to use for generation"),
                 ],
                 description="Generate text using OpenAI models"
             ),
@@ -130,7 +131,7 @@ class OpenAIConnection(BaseConnection):
                 logger.debug(f"Configuration check failed: {e}")
             return False
 
-    def generate_text(self, prompt: str, system_prompt: str, model: str = None, **kwargs) -> str:
+    def generate_text(self, prompt: str, system_prompt: str, model: str = None, stop: list[str] = None, **kwargs) -> str:
         """Generate text using OpenAI models"""
         try:
             client = self._get_client()
@@ -138,13 +139,14 @@ class OpenAIConnection(BaseConnection):
             # Use configured model if none provided
             if not model:
                 model = self.config["model"]
-
+            # logger.info(f"start requesting model: {model} with prompt {prompt} and system_prompt {system_prompt} and with stop {stop}")
             completion = client.chat.completions.create(
                 model=model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
                 ],
+                stop=stop
             )
 
             return completion.choices[0].message.content
