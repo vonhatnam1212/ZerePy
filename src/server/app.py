@@ -1,14 +1,17 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 
-from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, Field
+from typing import AsyncGenerator, Dict, List, Literal, Optional, Union, Any
+import shortuuid
+import time
 import logging
 import asyncio
 import signal
 import threading
 from pathlib import Path
 from src.cli import ZerePyCLI
-
+from src.agent import ZerePyAgent
+from  uuid import uuid4
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("server/app")
 
@@ -16,12 +19,71 @@ class ActionRequest(BaseModel):
     """Request model for agent actions"""
     connection: str
     action: str
-    params: Optional[List[str]] = []
+    params: Optional[List[str]] = None
 
 class ConfigureRequest(BaseModel):
     """Request model for configuring connections"""
     connection: str
-    params: Optional[Dict[str, Any]] = {}
+    params: Optional[Dict[str, Any]] = None
+
+class ErrorResponse(BaseModel):
+    object: str = "error"
+    message: str
+
+
+class UsageInfo(BaseModel):
+    prompt_tokens: int = 0
+    total_tokens: int = 0
+    completion_tokens: Optional[int] = 0
+
+# OpenAI sdk
+class ChatCompletionRequest(BaseModel):
+    # OpenAI fields: https://platform.openai.com/docs/api-reference/chat/create
+    model: str
+    messages: Union[
+        str,
+        List[Dict[str, str]],
+        List[Dict[str, Union[str, List[Dict[str, Union[str, Dict[str, str]]]]]]],
+    ]
+    frequency_penalty: Optional[float] = 0.0
+    logit_bias: Optional[Dict[int, float]] = None
+    logprobs: Optional[bool] = None
+    top_logprobs: Optional[int] = None
+    max_tokens: Optional[int] = None
+    n: Optional[int] = 1
+    presence_penalty: Optional[float] = 0.0
+    response_format: Optional[Dict[str, str]] = (
+        None  # { "type": "json_object" } for json mode
+    )
+    seed: Optional[int] = None
+    stop: Optional[Union[str, List[str]]] = None
+    stream: Optional[bool] = False
+    temperature: Optional[float] = 1.0
+    top_p: Optional[float] = 1.0
+    tools: Optional[List[Dict[str, Union[str, int, float]]]] = None
+    tool_choice: Optional[str] = None
+    user: Optional[str] = None
+
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class ChatCompletionResponseChoice(BaseModel):
+    index: int
+    message: ChatMessage
+    finish_reason: Optional[Literal["stop", "length"]] = None
+
+
+class ChatCompletionResponse(BaseModel):
+    id: str = Field(default_factory=lambda: f"chatcmpl-{shortuuid.random()}")
+    object: str = "chat.completion"
+    created: int = Field(default_factory=lambda: int(time.time()))
+    model: str
+    choices: List[ChatCompletionResponseChoice]
+    usage: UsageInfo
+
 
 class ServerState:
     """Simple state management for the server"""
@@ -209,6 +271,37 @@ class ZerePyServer:
                 
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
+
+        @self.app.post("/v1/chat/completions")
+        async def create_chat_completion(request: ChatCompletionRequest):
+            response = ZerePyAgent(request.model).prompt_agent(request.messages)
+            return {
+                "id": f"chatcmpl-{uuid4()}",
+                "object": "chat.completion",
+                "created": 1677652288,
+                "model": request.model,
+                "system_fingerprint": "fp_44709d6fcb",
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": response,
+                    },
+                    "logprobs": None,
+                    "finish_reason": "stop"
+                }],
+                "usage": {
+                    "prompt_tokens": 9,
+                    "completion_tokens": 12,
+                    "total_tokens": 21,
+                    "completion_tokens_details": {
+                        "reasoning_tokens": 0,
+                        "accepted_prediction_tokens": 0,
+                        "rejected_prediction_tokens": 0
+                    }
+                }
+            }
+
 
 def create_app():
     server = ZerePyServer()
