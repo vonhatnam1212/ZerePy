@@ -1,17 +1,17 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
-
-from pydantic import BaseModel, Field
-from typing import AsyncGenerator, Dict, List, Literal, Optional, Union, Any
-import shortuuid
-import time
-import logging
 import asyncio
-import signal
+import logging
 import threading
+import time
 from pathlib import Path
+from typing import Dict, List, Literal, Optional, Union, Any
+from uuid import uuid4
+
+import shortuuid
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
+
 from src.cli import ZerePyCLI
-from src.agent import ZerePyAgent
-from  uuid import uuid4
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("server/app")
 
@@ -272,9 +272,12 @@ class ZerePyServer:
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
 
-        @self.app.post("/v1/chat/completions")
+        @self.app.post("/chat/completions")
         async def create_chat_completion(request: ChatCompletionRequest):
-            response = ZerePyAgent(request.model).prompt_agent(request.messages)
+            model = request.model
+            messages = request.messages
+
+            response = self.state.cli.agent.prompt_agent(messages)
             return {
                 "id": f"chatcmpl-{uuid4()}",
                 "object": "chat.completion",

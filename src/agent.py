@@ -161,6 +161,10 @@ class ZerePyAgent:
         """Main agent loop for autonomous behavior"""
         if not self.is_llm_set:
             self._setup_llm_provider()
+        system_prompt = self._construct_system_prompt()
+        system_prompt = system_prompt.format(
+            tool=self.tasks
+        )
 
         logger.info("\n🚀 Starting agent loop...")
         logger.info("Press Ctrl+C at any time to stop the loop.")
@@ -176,60 +180,15 @@ class ZerePyAgent:
             while True:
                 success = False
                 try:
-                    # REPLENISH INPUTS
-                    # TODO: Add more inputs to complexify agent behavior
-                    if "timeline_tweets" not in self.state or self.state["timeline_tweets"] is None or len(self.state["timeline_tweets"]) == 0:
-                        if any("tweet" in task["name"] for task in self.tasks):
-                            logger.info("\n👀 READING TIMELINE")
-                            self.state["timeline_tweets"] = self.connection_manager.perform_action(
-                                connection_name="twitter",
-                                action_name="read-timeline",
-                                params=[]
-                            )
-
-                    if "room_info" not in self.state or self.state["room_info"] is None:
-                        if any("echochambers" in task["name"] for task in self.tasks):
-                            logger.info("\n👀 READING ECHOCHAMBERS ROOM INFO")
-                            self.state["room_info"] = self.connection_manager.perform_action(
-                                connection_name="echochambers",
-                                action_name="get-room-info",
-                                params={}
-                            )
-
-                    # CHOOSE AN ACTION
-                    # TODO: Add agentic action selection
-                    n_calls, n_badcalls = 0, 0
-                    prompt = ""
-                    for i in range(1, 3):
-                        n_calls += 1
-                        thought_action = self.prompt_llm(prompt= prompt + f"Thought {i}:",stop=[f"\nObservation {i}:"])
-                        logger.info(f"thought_action {thought_action}...")
-                        try:
-                            thought, action_name = thought_action.strip().split(f"\nAction {i}: ")
-                        except:
-                            logger.info(f'ohh... {thought_action}')
-                            n_badcalls += 1
-                            n_calls += 1
-                            thought = thought_action.strip().split('\n')[0]
-                            action_name = self.prompt_llm(prompt = prompt + f"Thought {i}: {thought}\nAction {i}:", stop=[f"\n"]).strip()
-                        obs = execute_action(self, action_name)
-                        step_str = f"Thought {i}: {thought}\nAction {i}: {action_name}\nObservation {i}: {obs}\n"
-                        prompt += step_str
-                        logger.info(f"{prompt}...")
-                        if action_name == "post-tweet":
-                            break
-                    # action = self.select_action(use_time_based_weights=self.use_time_based_weights)
-                    # action_name = action["name"]
-
-                    # PERFORM ACTION
-                    # success = execute_action(self, action_name)
 
                     n_calls, n_badcalls = 0, 0
                     self.steps = 0
                     self.answer = None
+                    prompt = ""
                     for i in range(1, 5):
                         n_calls += 1
                         thought_action = self.prompt_llm(prompt=prompt + f"Thought {i}:",
+                                                         system_prompt=system_prompt,
                                                          stop=[f"Observation {i}:"])
                         logger.info(f"thought_action {thought_action}...")
                         try:
@@ -241,17 +200,18 @@ class ZerePyAgent:
                             n_calls += 1
                             thought = thought_action.strip().split('\n')[0]
                             action_name = self.prompt_llm(prompt=prompt + f"Thought {i}: {thought}\nAction {i}:",
+                                                          system_prompt=system_prompt,
                                                           stop=[f"\n"]).strip()
                         logger.info(f"action_name {action_name[0], action_name[0].lower(), action_name[1:]}...")
-                        obs, r, done, info = self.step(action_name[0].lower() + action_name[1:])
-                        logger.info(f"return step {obs, r, done, info}...")
+                        obs, r, done, info = self.env(action_name[0].lower() + action_name[1:])
+                        logger.info(f"return env {obs, r, done, info}...")
                         step_str = f"Thought {i}: {thought}\nAction {i}: {action_name}\nObservation {i}: {obs}\n"
                         prompt += step_str
                         logger.info(f"{prompt}...")
                         if done:
                             break
                     if not done:
-                        obs, r, done, info = self.step("finish[]")
+                        obs, r, done, info = self.env("finish[]")
 
                     logger.info(f"\n⏳ Waiting {self.loop_delay} seconds before next loop...")
                     print_h_bar()
@@ -270,30 +230,14 @@ class ZerePyAgent:
         if not self.is_llm_set:
             self._setup_llm_provider()
 
+        system_prompt = self._construct_system_prompt()
+        system_prompt = system_prompt.format(
+            tool=self.tasks
+        )
+        logger.info(f"system prompt: {system_prompt}")
         logger.info("\n🚀 Starting prompt agent")
 
         try:
-            # try:
-            #     # REPLENISH INPUTS
-            #     # TODO: Add more inputs to complexify agent behavior
-            #     if "timeline_tweets" not in self.state or self.state["timeline_tweets"] is None or len(
-            #             self.state["timeline_tweets"]) == 0:
-            #         if any("tweet" in task["name"] for task in self.tasks):
-            #             logger.info("\n👀 READING TIMELINE")
-            #             self.state["timeline_tweets"] = self.connection_manager.perform_action(
-            #                 connection_name="twitter",
-            #                 action_name="read-timeline",
-            #                 params=[]
-            #             )
-            #
-            #     if "room_info" not in self.state or self.state["room_info"] is None:
-            #         if any("echochambers" in task["name"] for task in self.tasks):
-            #             logger.info("\n👀 READING ECHOCHAMBERS ROOM INFO")
-            #             self.state["room_info"] = self.connection_manager.perform_action(
-            #                 connection_name="echochambers",
-            #                 action_name="get-room-info",
-            #                 params={}
-            #             )
 
             # CHOOSE AN ACTION
             # TODO: Add agentic action selection
@@ -303,6 +247,7 @@ class ZerePyAgent:
             for i in range(1, 5):
                 n_calls += 1
                 thought_action = self.prompt_llm(prompt=prompt + f"Thought {i}:",
+                                                 system_prompt=system_prompt,
                                                  stop=[f"Observation {i}:"])
                 logger.info(f"thought_action {thought_action}...")
                 try:
@@ -314,24 +259,25 @@ class ZerePyAgent:
                     n_calls += 1
                     thought = thought_action.strip().split('\n')[0]
                     action_name = self.prompt_llm(prompt=prompt + f"Thought {i}: {thought}\nAction {i}:",
+                                                  system_prompt=system_prompt,
                                                   stop=[f"\n"]).strip()
                 logger.info(f"action_name {action_name[0], action_name[0].lower(), action_name[1:]}...")
-                obs, r, done, info = self.step(action_name[0].lower() + action_name[1:])
-                logger.info(f"return step {obs, r, done, info}...")
+                obs, r, done, info = self.env(action_name[0].lower() + action_name[1:])
+                logger.info(f"return env {obs, r, done, info}...")
                 step_str = f"Thought {i}: {thought}\nAction {i}: {action_name}\nObservation {i}: {obs}\n"
                 prompt += step_str
                 logger.info(f"{prompt}...")
                 if done:
                     break
             if not done:
-                obs, r, done, info = self.step("finish[]")
+                obs, r, done, info = self.env("finish[]")
             return self.answer
 
         except KeyboardInterrupt:
             logger.info("\n🛑 Agent loop stopped by user.")
             return
 
-    def step(self, action):
+    def env(self, action):
         attempts = 0
         while attempts < 10:
             try:
