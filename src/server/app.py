@@ -15,16 +15,19 @@ from src.cli import ZerePyCLI
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("server/app")
 
+
 class ActionRequest(BaseModel):
     """Request model for agent actions"""
     connection: str
     action: str
     params: Optional[List[str]] = None
 
+
 class ConfigureRequest(BaseModel):
     """Request model for configuring connections"""
     connection: str
     params: Optional[Dict[str, Any]] = None
+
 
 class ErrorResponse(BaseModel):
     object: str = "error"
@@ -36,10 +39,8 @@ class UsageInfo(BaseModel):
     total_tokens: int = 0
     completion_tokens: Optional[int] = 0
 
-# OpenAI sdk
+
 class ChatCompletionRequest(BaseModel):
-    # OpenAI fields: https://platform.openai.com/docs/api-reference/chat/create
-    model: str
     messages: Union[
         str,
         List[Dict[str, str]],
@@ -87,6 +88,7 @@ class ChatCompletionResponse(BaseModel):
 
 class ServerState:
     """Simple state management for the server"""
+
     def __init__(self):
         self.cli = ZerePyCLI()
         self.agent_running = False
@@ -118,7 +120,7 @@ class ServerState:
         """Start the agent loop in background thread"""
         if not self.cli.agent:
             raise ValueError("No agent loaded")
-        
+
         if self.agent_running:
             raise ValueError("Agent already running")
 
@@ -134,6 +136,7 @@ class ServerState:
             if self.agent_task:
                 self.agent_task.join(timeout=5)
             self.agent_running = False
+
 
 class ZerePyServer:
     def __init__(self):
@@ -182,7 +185,7 @@ class ZerePyServer:
             """List all available connections"""
             if not self.state.cli.agent:
                 raise HTTPException(status_code=400, detail="No agent loaded")
-            
+
             try:
                 connections = {}
                 for name, conn in self.state.cli.agent.connection_manager.connections.items():
@@ -199,7 +202,7 @@ class ZerePyServer:
             """Execute a single agent action"""
             if not self.state.cli.agent:
                 raise HTTPException(status_code=400, detail="No agent loaded")
-            
+
             try:
                 result = await asyncio.to_thread(
                     self.state.cli.agent.perform_action,
@@ -216,7 +219,7 @@ class ZerePyServer:
             """Start the agent loop"""
             if not self.state.cli.agent:
                 raise HTTPException(status_code=400, detail="No agent loaded")
-            
+
             try:
                 await self.state.start_agent_loop()
                 return {"status": "success", "message": "Agent loop started"}
@@ -231,24 +234,27 @@ class ZerePyServer:
                 return {"status": "success", "message": "Agent loop stopped"}
             except Exception as e:
                 raise HTTPException(status_code=400, detail=str(e))
-        
+
         @self.app.post("/connections/{name}/configure")
         async def configure_connection(name: str, config: ConfigureRequest):
             """Configure a specific connection"""
             if not self.state.cli.agent:
                 raise HTTPException(status_code=400, detail="No agent loaded")
-            
+
             try:
-                connection = self.state.cli.agent.connection_manager.connections.get(name)
+                connection = self.state.cli.agent.connection_manager.connections.get(
+                    name)
                 if not connection:
-                    raise HTTPException(status_code=404, detail=f"Connection {name} not found")
-                
+                    raise HTTPException(
+                        status_code=404, detail=f"Connection {name} not found")
+
                 success = connection.configure(**config.params)
                 if success:
                     return {"status": "success", "message": f"Connection {name} configured successfully"}
                 else:
-                    raise HTTPException(status_code=400, detail=f"Failed to configure {name}")
-                    
+                    raise HTTPException(
+                        status_code=400, detail=f"Failed to configure {name}")
+
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
 
@@ -257,32 +263,30 @@ class ZerePyServer:
             """Get configuration status of a connection"""
             if not self.state.cli.agent:
                 raise HTTPException(status_code=400, detail="No agent loaded")
-                
+
             try:
-                connection = self.state.cli.agent.connection_manager.connections.get(name)
+                connection = self.state.cli.agent.connection_manager.connections.get(
+                    name)
                 if not connection:
-                    raise HTTPException(status_code=404, detail=f"Connection {name} not found")
-                    
+                    raise HTTPException(
+                        status_code=404, detail=f"Connection {name} not found")
+
                 return {
                     "name": name,
                     "configured": connection.is_configured(verbose=True),
                     "is_llm_provider": connection.is_llm_provider
                 }
-                
+
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
 
         @self.app.post("/chat/completions")
         async def create_chat_completion(request: ChatCompletionRequest):
-            model = request.model
-            messages = request.messages
-
-            response = self.state.cli.agent.prompt_agent(messages)
+            response = self.state.cli.agent.prompt_agent(request.messages)
             return {
                 "id": f"chatcmpl-{uuid4()}",
                 "object": "chat.completion",
                 "created": 1677652288,
-                "model": request.model,
                 "system_fingerprint": "fp_44709d6fcb",
                 "choices": [{
                     "index": 0,

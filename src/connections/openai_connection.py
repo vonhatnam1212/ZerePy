@@ -7,17 +7,21 @@ from src.connections.base_connection import BaseConnection, Action, ActionParame
 
 logger = logging.getLogger("connections.openai_connection")
 
+
 class OpenAIConnectionError(Exception):
     """Base exception for OpenAI connection errors"""
     pass
+
 
 class OpenAIConfigurationError(OpenAIConnectionError):
     """Raised when there are configuration/credential issues"""
     pass
 
+
 class OpenAIAPIError(OpenAIConnectionError):
     """Raised when OpenAI API requests fail"""
     pass
+
 
 class OpenAIConnection(BaseConnection):
     def __init__(self, config: Dict[str, Any]):
@@ -31,15 +35,17 @@ class OpenAIConnection(BaseConnection):
     def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Validate OpenAI configuration from JSON"""
         required_fields = ["model"]
-        missing_fields = [field for field in required_fields if field not in config]
-        
+        missing_fields = [
+            field for field in required_fields if field not in config]
+
         if missing_fields:
-            raise ValueError(f"Missing required configuration fields: {', '.join(missing_fields)}")
-            
+            raise ValueError(
+                f"Missing required configuration fields: {', '.join(missing_fields)}")
+
         # Validate model exists (will be checked in detail during configure)
         if not isinstance(config["model"], str):
             raise ValueError("model must be a string")
-            
+
         return config
 
     def register_actions(self) -> None:
@@ -48,17 +54,22 @@ class OpenAIConnection(BaseConnection):
             "generate-text": Action(
                 name="generate-text",
                 parameters=[
-                    ActionParameter("prompt", True, str, "The input prompt for text generation"),
-                    ActionParameter("system_prompt", True, str, "System prompt to guide the model"),
-                    ActionParameter("stop", False, list[str], "Stop sequences"),
-                    ActionParameter("model", False, str, "Model to use for generation"),
+                    ActionParameter("prompt", True, str,
+                                    "The input prompt for text generation"),
+                    ActionParameter("system_prompt", True, str,
+                                    "System prompt to guide the model"),
+                    ActionParameter(
+                        "stop", False, list[str], "Stop sequences"),
+                    ActionParameter("model", False, str,
+                                    "Model to use for generation"),
                 ],
                 description="Generate text using OpenAI models"
             ),
             "check-model": Action(
                 name="check-model",
                 parameters=[
-                    ActionParameter("model", True, str, "Model name to check availability")
+                    ActionParameter("model", True, str,
+                                    "Model name to check availability")
                 ],
                 description="Check if a specific model is available"
             ),
@@ -74,7 +85,8 @@ class OpenAIConnection(BaseConnection):
         if not self._client:
             api_key = os.getenv("OPENAI_API_KEY")
             if not api_key:
-                raise OpenAIConfigurationError("OpenAI API key not found in environment")
+                raise OpenAIConfigurationError(
+                    "OpenAI API key not found in environment")
             self._client = OpenAI(api_key=api_key)
         return self._client
 
@@ -91,8 +103,9 @@ class OpenAIConnection(BaseConnection):
         logger.info("\n📝 To get your OpenAI API credentials:")
         logger.info("1. Go to https://platform.openai.com/account/api-keys")
         logger.info("2. Create a new project or open an existing one.")
-        logger.info("3. In your project settings, navigate to the API keys section and create a new API key")
-        
+        logger.info(
+            "3. In your project settings, navigate to the API keys section and create a new API key")
+
         api_key = input("\nEnter your OpenAI API key: ")
 
         try:
@@ -101,7 +114,7 @@ class OpenAIConnection(BaseConnection):
                     f.write('')
 
             set_key('.env', 'OPENAI_API_KEY', api_key)
-            
+
             # Validate the API key by trying to list models
             client = OpenAI(api_key=api_key)
             client.models.list()
@@ -114,7 +127,7 @@ class OpenAIConnection(BaseConnection):
             logger.error(f"Configuration failed: {e}")
             return False
 
-    def is_configured(self, verbose = False) -> bool:
+    def is_configured(self, verbose=False) -> bool:
         """Check if OpenAI API key is configured and valid"""
         try:
             load_dotenv()
@@ -125,7 +138,7 @@ class OpenAIConnection(BaseConnection):
             client = OpenAI(api_key=api_key)
             client.models.list()
             return True
-            
+
         except Exception as e:
             if verbose:
                 logger.debug(f"Configuration check failed: {e}")
@@ -135,7 +148,7 @@ class OpenAIConnection(BaseConnection):
         """Generate text using OpenAI models"""
         try:
             client = self._get_client()
-            
+
             # Use configured model if none provided
             if not model:
                 model = self.config["model"]
@@ -150,7 +163,7 @@ class OpenAIConnection(BaseConnection):
             )
 
             return completion.choices[0].message.content
-            
+
         except Exception as e:
             raise OpenAIAPIError(f"Text generation failed: {e}")
 
@@ -171,9 +184,9 @@ class OpenAIConnection(BaseConnection):
         try:
             client = self._get_client()
             response = client.models.list().data
-            
+
             fine_tuned_models = [
-                model for model in response 
+                model for model in response
                 if model.owned_by in ["organization", "user", "organization-owner"]
             ]
 
@@ -183,15 +196,15 @@ class OpenAIConnection(BaseConnection):
             logger.info("3. gpt-4-turbo")
             logger.info("4. gpt-4o")
             logger.info("5. gpt-4o-mini")
-            
+
             if fine_tuned_models:
                 logger.info("\nFINE-TUNED MODELS:")
                 for i, model in enumerate(fine_tuned_models):
                     logger.info(f"{i+1}. {model.id}")
-                    
+
         except Exception as e:
             raise OpenAIAPIError(f"Listing models failed: {e}")
-    
+
     def perform_action(self, action_name: str, kwargs) -> Any:
         """Execute a Twitter action with validation"""
         if action_name not in self.actions:
