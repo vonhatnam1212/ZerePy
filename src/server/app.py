@@ -41,6 +41,7 @@ class UsageInfo(BaseModel):
 
 
 class ChatCompletionRequest(BaseModel):
+    model: str
     messages: Union[
         str,
         List[Dict[str, str]],
@@ -286,6 +287,7 @@ class ZerePyServer:
             return {
                 "id": f"chatcmpl-{uuid4()}",
                 "object": "chat.completion",
+                "model": request.model,
                 "created": 1677652288,
                 "system_fingerprint": "fp_44709d6fcb",
                 "choices": [{
