@@ -74,6 +74,8 @@ class ConnectionManager:
             return EVMConnection
         elif class_name == "perplexity":
             return PerplexityConnection
+        elif class_name == "supabase":
+            return SupabaseConnection
         return None
 
     def _register_connection(self, config_dic: Dict[str, Any]) -> None:
