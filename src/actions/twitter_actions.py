@@ -12,7 +12,7 @@ def post_tweet(agent, **kwargs):
     agent.connection_manager.perform_action(
         connection_name="twitter",
         action_name="post-tweet",
-        params=[kwargs['tweet_text']]
+        params=[agent.answer]
     )
     agent.logger.info("\n✅ Tweet posted successfully!")
     return True

@@ -269,6 +269,7 @@ class ZerePyAgent:
 
         if action.startswith("call[") and action.endswith("]"):
             entity = action[len("call["):-1]
+            logger.info(f"action to be invoked: {entity}")
             self.obs = execute_action(self, entity)
         elif action.startswith("finish[") and action.endswith("]"):
             answer = action[len("finish["):-1]
