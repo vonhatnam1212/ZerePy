@@ -19,6 +19,11 @@ EVM_NETWORKS = {
         "scanner_url": "etherscan.io",
         "chain_id": 1
     },
+    "ganache": {
+        "rpc_url": "http://127.0.0.1:7545",
+        "scanner_url": "",
+        "chain_id": 5777
+    },
     "base": {
         "rpc_url": "https://mainnet.base.org",
         "scanner_url": "basescan.org",
