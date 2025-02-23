@@ -1,12 +1,13 @@
 import json
 import logging
-import random
 import time
-from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 from src.action_handler import execute_action
+import src.actions.twitter_actions
+import src.actions.supabase_actions
+
 from src.connection_manager import ConnectionManager
 from src.helpers import print_h_bar
 
@@ -117,20 +118,11 @@ class ZerePyAgent:
     def perform_action(self, connection: str, action: str, **kwargs) -> None:
         return self.connection_manager.perform_action(connection, action, **kwargs)
 
-    def select_action(self, use_time_based_weights: bool = False) -> dict:
-        task_weights = [weight for weight in self.task_weights.copy()]
-
-        if use_time_based_weights:
-            current_hour = datetime.now().hour
-            task_weights = self._adjust_weights_for_time(
-                current_hour, task_weights)
-
-        return random.choices(self.tasks, weights=task_weights, k=1)[0]
-
     def loop(self):
         """Main agent loop for autonomous behavior"""
         if not self.is_llm_set:
             self._setup_llm_provider()
+
         system_prompt = self._construct_system_prompt()
         system_prompt = system_prompt.format(
             tool=self.tasks
@@ -139,6 +131,8 @@ class ZerePyAgent:
         logger.info("\n🚀 Starting agent loop...")
         logger.info("Press Ctrl+C at any time to stop the loop.")
         print_h_bar()
+
+        logger.info(f"System prompt: {system_prompt}")
 
         time.sleep(2)
         logger.info("Starting loop in 5 seconds...")
