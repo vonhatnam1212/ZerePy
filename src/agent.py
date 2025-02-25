@@ -5,9 +5,6 @@ from pathlib import Path
 from typing import Optional
 
 from src.action_handler import execute_action
-import src.actions.twitter_actions
-import src.actions.supabase_actions
-
 from src.connection_manager import ConnectionManager
 from src.helpers import print_h_bar
 
@@ -178,7 +175,10 @@ class ZerePyAgent:
                             break
                     if not done:
                         obs, r, done, info = self.env("finish[]")
-
+                    task_exists = any(action['name'] == 'post-tweet' for action in self.tasks)
+                    if task_exists:
+                        logger.info(f"post-tweet started ...")
+                        execute_action(self, "post-tweet")
                     logger.info(
                         f"\n⏳ Waiting {self.loop_delay} seconds before next loop...")
                     print_h_bar()
