@@ -3,7 +3,8 @@ import logging
 import time
 from pathlib import Path
 from typing import Optional
-
+import src.actions.twitter_actions
+import src.actions.supabase_actions
 from src.action_handler import execute_action
 from src.connection_manager import ConnectionManager
 from src.helpers import print_h_bar
@@ -136,7 +137,6 @@ class ZerePyAgent:
         for i in range(5, 0, -1):
             logger.info(f"{i}...")
             time.sleep(1)
-
         try:
             while True:
                 success = False
