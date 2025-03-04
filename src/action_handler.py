@@ -2,7 +2,7 @@ import logging
 
 logger = logging.getLogger("action_handler")
 
-action_registry = {}    
+action_registry = {}
 
 def register_action(action_name):
     def decorator(func):
@@ -16,5 +16,3 @@ def execute_action(agent, action_name, **kwargs):
     else:
         logger.error(f"Action {action_name} not found")
         return None
-    
-
