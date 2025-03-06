@@ -60,6 +60,8 @@ class OpenAIConnection(BaseConnection):
                                     "System prompt to guide the model"),
                     ActionParameter(
                         "stop", False, list[str], "Stop sequences"),
+                    ActionParameter("response_format", False, dict,
+                                    "Response format to use"),
                     ActionParameter("model", False, str,
                                     "Model to use for generation"),
                 ],
@@ -144,7 +146,15 @@ class OpenAIConnection(BaseConnection):
                 logger.debug(f"Configuration check failed: {e}")
             return False
 
-    def generate_text(self, prompt: str, system_prompt: str, model: str = None, stop: list[str] = None, **kwargs) -> str:
+    def generate_text(
+            self,
+            prompt: str,
+            system_prompt: str,
+            model: str = None,
+            stop: list[str] = None,
+            response_format: Any = None,
+            **kwargs
+    ) -> str:
         """Generate text using OpenAI models"""
         try:
             client = self._get_client()
@@ -153,6 +163,19 @@ class OpenAIConnection(BaseConnection):
             if not model:
                 model = self.config["model"]
             # logger.info(f"start requesting model: {model} with prompt {prompt} and system_prompt {system_prompt} and with stop {stop}")
+            if response_format:
+                logger.info(
+                    f"start requesting model: {model} with prompt {prompt} and system_prompt {system_prompt} and with stop {stop}")
+
+                completion = client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt},
+                    ],
+                    response_format=response_format,
+                )
+                return completion.choices[0].message.content
             completion = client.chat.completions.create(
                 model=model,
                 messages=[
@@ -211,9 +234,9 @@ class OpenAIConnection(BaseConnection):
             raise KeyError(f"Unknown action: {action_name}")
 
         action = self.actions[action_name]
-        errors = action.validate_params(kwargs)
-        if errors:
-            raise ValueError(f"Invalid parameters: {', '.join(errors)}")
+        # errors = action.validate_params(kwargs)
+        # if errors:
+        #     raise ValueError(f"Invalid parameters: {', '.join(errors)}")
 
         # Call the appropriate method based on action name
         method_name = action_name.replace('-', '_')

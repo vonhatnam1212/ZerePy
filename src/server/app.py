@@ -16,6 +16,31 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("server/app")
 
 
+class Token(BaseModel):
+    name: str = Field(..., description="Name token")
+    ticker: str = Field(..., description="Token symbol")
+    description: str = Field(..., description="Description token")
+
+
+response_format = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "token_response",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "token_symbol": {"type": "string"},
+                "description": {"type": "string"},
+            },
+            "required": ["name", "token_symbol", "description"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+
 class ActionRequest(BaseModel):
     """Request model for agent actions"""
     connection: str
@@ -284,6 +309,37 @@ class ZerePyServer:
         @self.app.post("/chat/completions")
         async def create_chat_completion(request: ChatCompletionRequest):
             response = self.state.cli.agent.prompt_agent(request.messages)
+            return {
+                "id": f"chatcmpl-{uuid4()}",
+                "object": "chat.completion",
+                "model": request.model,
+                "created": 1677652288,
+                "system_fingerprint": "fp_44709d6fcb",
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": response,
+                    },
+                    "logprobs": None,
+                    "finish_reason": "stop"
+                }],
+                "usage": {
+                    "prompt_tokens": 9,
+                    "completion_tokens": 12,
+                    "total_tokens": 21,
+                    "completion_tokens_details": {
+                        "reasoning_tokens": 0,
+                        "accepted_prediction_tokens": 0,
+                        "rejected_prediction_tokens": 0
+                    }
+                }
+            }
+
+        @self.app.post("/structured_outputs/completions")
+        async def structured_outputs_completion(request: ChatCompletionRequest):
+            response = self.state.cli.agent.prompt_llm(prompt=request.messages, system_prompt="structured output",
+                                                       response_format=response_format)
             return {
                 "id": f"chatcmpl-{uuid4()}",
                 "object": "chat.completion",

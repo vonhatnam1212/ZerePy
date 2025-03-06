@@ -2,7 +2,7 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 import src.actions.twitter_actions
 import src.actions.supabase_actions
 from src.action_handler import execute_action
@@ -96,21 +96,30 @@ class ZerePyAgent:
         # Increase engagement frequency during day hours (8 AM - 8 PM) (peak hours?🤔)
         if 8 <= current_hour <= 20:
             weights = [
-                weight * self.time_based_multipliers.get("engagement_day_multiplier", 1.5) if task["name"] in ("reply-to-tweet", "like-tweet")
+                weight * self.time_based_multipliers.get("engagement_day_multiplier", 1.5) if task["name"] in (
+                    "reply-to-tweet", "like-tweet")
                 else weight
                 for weight, task in zip(weights, self.tasks)
             ]
 
         return weights
 
-    def prompt_llm(self, prompt: str, system_prompt: str = None, stop: Optional[list[str]] = None) -> str:
+    def prompt_llm(
+            self,
+            prompt: str,
+            system_prompt: str = None,
+            stop: Optional[list[str]] = None,
+            response_format: Optional[Any] = None
+    ) -> str:
+        if not self.is_llm_set:
+            self._setup_llm_provider()
         """Generate text using the configured LLM provider"""
         system_prompt = system_prompt or self._construct_system_prompt()
 
         return self.connection_manager.perform_action(
             connection_name=self.model_provider,
             action_name="generate-text",
-            params=[prompt, system_prompt, stop]
+            params=[prompt, system_prompt, stop, response_format]
         )
 
     def perform_action(self, connection: str, action: str, **kwargs) -> None:
