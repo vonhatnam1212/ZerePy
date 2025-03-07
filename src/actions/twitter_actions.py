@@ -102,3 +102,12 @@ def respond_to_mentions(agent, **kwargs):  # REQUIRES TWITTER PREMIUM PLAN
     processing_thread = threading.Thread(target=process_tweets)
     processing_thread.daemon = True
     processing_thread.start()
+
+
+@register_action("gen-token-with-tweet")
+def gen_token_with_tweet(agent, **kwargs):
+    return agent.connection_manager.perform_action(
+        connection_name="twitter",
+        action_name="gen-token-with-tweet",
+        params=[]
+    )

@@ -6,6 +6,7 @@ from dotenv import set_key, load_dotenv
 from src.connections.base_connection import BaseConnection, Action, ActionParameter
 from src.helpers import print_h_bar
 import json,requests
+import re
 
 logger = logging.getLogger("connections.twitter_connection")
 
@@ -97,6 +98,12 @@ class TwitterConnection(BaseConnection):
                 name="stream-tweets",
                 parameters=[
                     ActionParameter("filter_string", True, str, "Filter string for rules of the stream , e.g @username")
+                ],
+                description="Stream tweets based on filter rule"
+            ),
+            "gen-token-with-tweet": Action(
+                name="gen-token-with-tweet",
+                parameters=[
                 ],
                 description="Stream tweets based on filter rule"
             )
@@ -376,6 +383,7 @@ class TwitterConnection(BaseConnection):
 
     def perform_action(self, action_name: str, kwargs) -> Any:
         """Execute a Twitter action with validation"""
+        logger.info(f"Twitter action: {self.actions}")
         if action_name not in self.actions:
             raise KeyError(f"Unknown action: {action_name}")
 
@@ -569,5 +577,24 @@ class TwitterConnection(BaseConnection):
         except Exception as e:
             logger.error(f"Error streaming tweets: {str(e)}")
             raise TwitterAPIError(f"Error streaming tweets: {str(e)}")
-        
-    
+
+    def gen_token_with_tweet(self):
+        """Like a tweet"""
+        logger.debug(f"List post timeline")
+        credentials = self._get_credentials()
+
+        response = self._make_request(
+            'get',
+            f"users/{credentials['TWITTER_USER_ID']}/tweets",
+        )
+
+        if response:
+            data_response = response.get("data", [])
+            for data in data_response:
+                if "@" in data["text"]:
+                    return {
+                        "agent_name": re.findall(r"@[A-Za-z0-9_\.]+", data["text"]),
+                        "data": data
+                    }
+        logger.info("Tweet liked successfully")
+        return response
