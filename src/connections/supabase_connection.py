@@ -225,7 +225,7 @@ class SupabaseConnection(BaseConnection):
 
             response = client.table('x_users') \
                 .select('account_id') \
-                .eq('user_id', user_id) \
+                .eq('account_id', user_id) \
                 .eq('is_active', True) \
                 .execute()
 
