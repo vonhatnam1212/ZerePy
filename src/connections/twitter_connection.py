@@ -5,15 +5,10 @@ from requests_oauthlib import OAuth1Session
 from dotenv import set_key, load_dotenv
 from src.connections.base_connection import BaseConnection, Action, ActionParameter
 from src.helpers import print_h_bar
-<<<<<<< HEAD
-import json,requests
-import re
-=======
 import json
 import requests
 import datetime
 from datetime import timedelta
->>>>>>> 4bc8633 (feat: add new action)
 
 logger = logging.getLogger("connections.twitter_connection")
 
@@ -123,18 +118,10 @@ class TwitterConnection(BaseConnection):
                 ],
                 description="Stream tweets based on filter rule"
             ),
-<<<<<<< HEAD
-            "gen-token-with-tweet": Action(
-                name="gen-token-with-tweet",
-                parameters=[
-                ],
-                description="Stream tweets based on filter rule"
-=======
             "get-mentioned-tweets": Action(
                 name="get-mentioned-tweets",
                 parameters=[],
                 description="Get mentioned tweets for the past 20 minutes"
->>>>>>> 4bc8633 (feat: add new action)
             )
         }
 
@@ -485,7 +472,6 @@ class TwitterConnection(BaseConnection):
         """Get latest tweets for a user"""
         logger.debug(f"Getting latest tweets for {username}, count: {count}")
 
-        credentials = self._get_credentials()
         params = {
             "tweet.fields": "created_at,text",
             "max_results": min(count, 100),
@@ -493,7 +479,7 @@ class TwitterConnection(BaseConnection):
         }
 
         response = self._make_request('get',
-                                      f"tweets/search/recent",
+                                      'tweets/search/recent',
                                       params=params)
 
         tweets = response.get("data", [])
