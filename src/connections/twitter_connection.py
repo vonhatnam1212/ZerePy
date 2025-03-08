@@ -617,7 +617,7 @@ class TwitterConnection(BaseConnection):
         start_time = current_time - timedelta(minutes=20)
 
         querystring = {
-            "tweet.fields": ["author_id", "created_at", "id", "text"],
+            "tweet.fields": "author_id,created_at,id,text",
             "end_time": current_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "start_time": start_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
