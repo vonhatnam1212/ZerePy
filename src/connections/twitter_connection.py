@@ -5,22 +5,33 @@ from requests_oauthlib import OAuth1Session
 from dotenv import set_key, load_dotenv
 from src.connections.base_connection import BaseConnection, Action, ActionParameter
 from src.helpers import print_h_bar
+<<<<<<< HEAD
 import json,requests
 import re
+=======
+import json
+import requests
+import datetime
+from datetime import timedelta
+>>>>>>> 4bc8633 (feat: add new action)
 
 logger = logging.getLogger("connections.twitter_connection")
+
 
 class TwitterConnectionError(Exception):
     """Base exception for Twitter connection errors"""
     pass
 
+
 class TwitterConfigurationError(TwitterConnectionError):
     """Raised when there are configuration/credential issues"""
     pass
 
+
 class TwitterAPIError(TwitterConnectionError):
     """Raised when Twitter API requests fail"""
     pass
+
 
 class TwitterConnection(BaseConnection):
     def __init__(self, config: Dict[str, Any]):
@@ -34,17 +45,19 @@ class TwitterConnection(BaseConnection):
     def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Validate Twitter configuration from JSON"""
         required_fields = ["timeline_read_count", "tweet_interval"]
-        missing_fields = [field for field in required_fields if field not in config]
-        
+        missing_fields = [
+            field for field in required_fields if field not in config]
+
         if missing_fields:
-            raise ValueError(f"Missing required configuration fields: {', '.join(missing_fields)}")
-            
+            raise ValueError(
+                f"Missing required configuration fields: {', '.join(missing_fields)}")
+
         if not isinstance(config["timeline_read_count"], int) or config["timeline_read_count"] <= 0:
             raise ValueError("timeline_read_count must be a positive integer")
 
         if not isinstance(config["tweet_interval"], int) or config["tweet_interval"] <= 0:
             raise ValueError("tweet_interval must be a positive integer")
-            
+
         return config
 
     def register_actions(self) -> None:
@@ -53,59 +66,75 @@ class TwitterConnection(BaseConnection):
             "get-latest-tweets": Action(
                 name="get-latest-tweets",
                 parameters=[
-                    ActionParameter("username", True, str, "Twitter username to get tweets from"),
-                    ActionParameter("count", False, int, "Number of tweets to retrieve")
+                    ActionParameter("username", True, str,
+                                    "Twitter username to get tweets from"),
+                    ActionParameter("count", False, int,
+                                    "Number of tweets to retrieve")
                 ],
                 description="Get the latest tweets from a user"
             ),
             "post-tweet": Action(
                 name="post-tweet",
                 parameters=[
-                    ActionParameter("message", True, str, "Text content of the tweet")
+                    ActionParameter("message", True, str,
+                                    "Text content of the tweet")
                 ],
                 description="Post a new tweet"
             ),
             "read-timeline": Action(
                 name="read-timeline",
                 parameters=[
-                    ActionParameter("count", False, int, "Number of tweets to read from timeline")
+                    ActionParameter("count", False, int,
+                                    "Number of tweets to read from timeline")
                 ],
                 description="Read tweets from user's timeline"
             ),
             "like-tweet": Action(
                 name="like-tweet",
                 parameters=[
-                    ActionParameter("tweet_id", True, str, "ID of the tweet to like")
+                    ActionParameter("tweet_id", True, str,
+                                    "ID of the tweet to like")
                 ],
                 description="Like a specific tweet"
             ),
             "reply-to-tweet": Action(
                 name="reply-to-tweet",
                 parameters=[
-                    ActionParameter("tweet_id", True, str, "ID of the tweet to reply to"),
-                    ActionParameter("message", True, str, "Reply message content")
+                    ActionParameter("tweet_id", True, str,
+                                    "ID of the tweet to reply to"),
+                    ActionParameter("message", True, str,
+                                    "Reply message content")
                 ],
                 description="Reply to an existing tweet"
             ),
             "get-tweet-replies": Action(
                 name="get-tweet-replies",
                 parameters=[
-                    ActionParameter("tweet_id", True, str, "ID of the tweet to query for replies")
+                    ActionParameter("tweet_id", True, str,
+                                    "ID of the tweet to query for replies")
                 ],
                 description="Fetch tweet replies"
             ),
             "stream-tweets": Action(
                 name="stream-tweets",
                 parameters=[
-                    ActionParameter("filter_string", True, str, "Filter string for rules of the stream , e.g @username")
+                    ActionParameter(
+                        "filter_string", True, str, "Filter string for rules of the stream , e.g @username")
                 ],
                 description="Stream tweets based on filter rule"
             ),
+<<<<<<< HEAD
             "gen-token-with-tweet": Action(
                 name="gen-token-with-tweet",
                 parameters=[
                 ],
                 description="Stream tweets based on filter rule"
+=======
+            "get-mentioned-tweets": Action(
+                name="get-mentioned-tweets",
+                parameters=[],
+                description="Get mentioned tweets for the past 20 minutes"
+>>>>>>> 4bc8633 (feat: add new action)
             )
         }
 
@@ -122,7 +151,8 @@ class TwitterConnection(BaseConnection):
             'TWITTER_USER_ID': 'user ID'
         }
 
-        optional_vars = {'TWITTER_BEARER_TOKEN'} # Bearer Token is used for streaming, Twitter premium plan is required
+        # Bearer Token is used for streaming, Twitter premium plan is required
+        optional_vars = {'TWITTER_BEARER_TOKEN'}
 
         credentials = {}
         missing = []
@@ -136,14 +166,14 @@ class TwitterConnection(BaseConnection):
         if missing:
             error_msg = f"Missing Twitter credentials: {', '.join(missing)}"
             raise TwitterConfigurationError(error_msg)
-        
+
         for env_var in optional_vars:
             credentials[env_var] = os.getenv(env_var)
 
         logger.debug("All required credentials found")
         return credentials
-     
-    def _make_request(self, method: str, endpoint: str,use_bearer: bool = False, stream: bool = False, **kwargs) -> dict:
+
+    def _make_request(self, method: str, endpoint: str, use_bearer: bool = False, stream: bool = False, **kwargs) -> dict:
         """
         Make a request to the Twitter API with error handling
 
@@ -183,7 +213,7 @@ class TwitterConnection(BaseConnection):
 
             if stream:
                 return response
-        
+
             return response.json()
 
         except Exception as e:
@@ -214,12 +244,12 @@ class TwitterConnection(BaseConnection):
         logger.debug("Getting authenticated user info")
         try:
             response = self._make_request('get',
-                                        'users/me',
-                                        params={'user.fields': 'id,username'})
+                                          'users/me',
+                                          params={'user.fields': 'id,username'})
             user_id = response['data']['id']
             username = response['data']['username']
             logger.debug(f"Retrieved user ID: {user_id}, username: {username}")
-            
+
             return user_id, username
         except Exception as e:
             logger.error(f"Failed to get authenticated user info: {str(e)}")
@@ -340,7 +370,8 @@ class TwitterConnection(BaseConnection):
                 oauth_tokens.get('oauth_token_secret')
             }
 
-            bearer_token = input("Input Bearer Token for Twitter Streams (optional, hit Enter to skip): ").strip()
+            bearer_token = input(
+                "Input Bearer Token for Twitter Streams (optional, hit Enter to skip): ").strip()
             if bearer_token:
                 env_vars['TWITTER_BEARER_TOKEN'] = bearer_token
 
@@ -359,7 +390,7 @@ class TwitterConnection(BaseConnection):
             logger.error(error_msg)
             raise TwitterConfigurationError(error_msg)
 
-    def is_configured(self, verbose = False) -> bool:
+    def is_configured(self, verbose=False) -> bool:
         """Check if Twitter credentials are configured and valid"""
         logger.debug("Checking Twitter configuration status")
         try:
@@ -405,7 +436,7 @@ class TwitterConnection(BaseConnection):
         """Read tweets from the user's timeline"""
         if count is None:
             count = self.config["timeline_read_count"]
-            
+
         logger.debug(f"Reading timeline, count: {count}")
         credentials = self._get_credentials()
 
@@ -469,7 +500,6 @@ class TwitterConnection(BaseConnection):
         logger.debug(f"Retrieved {len(tweets)} tweets")
         return tweets
 
-
     def post_tweet(self, message: str, **kwargs) -> dict:
         """Post a new tweet"""
         logger.debug("Posting new tweet")
@@ -509,38 +539,39 @@ class TwitterConnection(BaseConnection):
 
         logger.info("Tweet liked successfully")
         return response
-    
+
     def get_tweet_replies(self, tweet_id: str, count: int = 10, **kwargs) -> List[dict]:
         """Fetch replies to a specific tweet"""
         logger.debug(f"Fetching replies for tweet {tweet_id}, count: {count}")
-        
+
         params = {
             "query": f"conversation_id:{tweet_id} is:reply",
             "tweet.fields": "author_id,created_at,text",
             "max_results": min(count, 100)
         }
-        
-        response = self._make_request('get', 'tweets/search/recent', params=params)
+
+        response = self._make_request(
+            'get', 'tweets/search/recent', params=params)
         replies = response.get("data", [])
-        
+
         logger.info(f"Retrieved {len(replies)} replies")
         return replies
-    
-    def _bearer_oauth(self,r):
+
+    def _bearer_oauth(self, r):
         bearer_token = self._get_credentials().get("TWITTER_BEARER_TOKEN")
         if not bearer_token:
-            raise TwitterConfigurationError("Bearer token is required for streaming API access")
+            raise TwitterConfigurationError(
+                "Bearer token is required for streaming API access")
         r.headers["Authorization"] = f"Bearer {bearer_token}"
         r.headers["User-Agent"] = "v2FilteredStreamPython"
         return r
-    
 
     def _get_rules(self):
         """Get stream rules"""
         logger.debug("Getting stream rules")
         return self._make_request('get', 'tweets/search/stream/rules', use_bearer=True)
-    
-    def _delete_rules(self,rules) -> None:
+
+    def _delete_rules(self, rules) -> None:
         """Delete stream rules"""
         if rules is None or "data" not in rules:
             return None
@@ -549,52 +580,50 @@ class TwitterConnection(BaseConnection):
         payload = {"delete": {"ids": ids}}
         return self._make_request('post', 'tweets/search/stream/rules', use_bearer=True, json=payload)
 
-    
     def _build_rule(self, filter_string, **kwargs) -> None:
         """Build a rule for the stream"""
-        rule = [{"value":filter_string }]
+        rule = [{"value": filter_string}]
         payload = {"add": rule}
         return self._make_request('post', 'tweets/search/stream/rules', use_bearer=True, json=payload)
-    
-    def stream_tweets(self, filter_string:str,**kwargs) ->Iterator[Dict[str, Any]]:
+
+    def stream_tweets(self, filter_string: str, **kwargs) -> Iterator[Dict[str, Any]]:
         """Stream tweets. Requires Twitter Premium Plan and Bearer Token"""
         rules = self._get_rules()
         self._delete_rules(rules)
         self._build_rule(filter_string)
         logger.info("Starting Twitter stream")
         try:
-            response = self._make_request('get', 'tweets/search/stream', 
-                                        use_bearer=True, stream=True)
-            
+            response = self._make_request('get', 'tweets/search/stream',
+                                          use_bearer=True, stream=True)
+
             if response.status_code != 200:
-                raise TwitterAPIError(f"Stream connection failed with status {response.status_code}: {response.text}")
-                
+                raise TwitterAPIError(
+                    f"Stream connection failed with status {response.status_code}: {response.text}")
+
             for line in response.iter_lines():
                 if line:
                     tweet_data = json.loads(line)['data']
                     yield tweet_data
-                
+
         except Exception as e:
             logger.error(f"Error streaming tweets: {str(e)}")
             raise TwitterAPIError(f"Error streaming tweets: {str(e)}")
 
-    def gen_token_with_tweet(self):
-        """Like a tweet"""
-        logger.debug(f"List post timeline")
+    def get_mentioned_tweets(self) -> List[Dict]:
+        method = 'get'
         credentials = self._get_credentials()
+        endpoint = f"users/{credentials['TWITTER_USER_ID']}/mentions"
+        current_time = datetime.datetime.utcnow()
+        start_time = current_time - timedelta(minutes=20)
+
+        querystring = {
+            "tweet.fields": ["author_id", "created_at", "id", "text"],
+            "end_time": current_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "start_time": start_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
 
         response = self._make_request(
-            'get',
-            f"users/{credentials['TWITTER_USER_ID']}/tweets",
-        )
-
-        if response:
-            data_response = response.get("data", [])
-            for data in data_response:
-                if "@" in data["text"]:
-                    return {
-                        "agent_name": re.findall(r"@[A-Za-z0-9_\.]+", data["text"]),
-                        "data": data
-                    }
-        logger.info("Tweet liked successfully")
-        return response
+            method=method, endpoint=endpoint, use_bearer=True, params=querystring)
+        tweets = response.get("data", [])
+        logger.debug(f"Retrieved {len(tweets)} tweets")
+        return tweets
