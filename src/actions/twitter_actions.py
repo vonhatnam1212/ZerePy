@@ -2,6 +2,13 @@ import threading
 from src.action_handler import register_action
 from src.helpers import print_h_bar
 from src.prompts import REPLY_TWEET_PROMPT
+import requests
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DEPLOY_TOKEN_URL = os.getenv("DEPLOY_TOKEN_URL")
 
 
 @register_action("post-tweet")
@@ -20,7 +27,8 @@ def post_tweet(agent, **kwargs):
 
 @register_action("reply-to-tweet")
 def reply_to_tweet(agent, **kwargs):
-    if "timeline_tweets" in agent.state and agent.state["timeline_tweets"] is not None and len(agent.state["timeline_tweets"]) > 0:
+    if "timeline_tweets" in agent.state and agent.state["timeline_tweets"] is not None and len(
+            agent.state["timeline_tweets"]) > 0:
         tweet = agent.state["timeline_tweets"].pop(0)
         tweet_id = tweet.get('id')
         if not tweet_id:
@@ -50,7 +58,8 @@ def reply_to_tweet(agent, **kwargs):
 
 @register_action("like-tweet")
 def like_tweet(agent, **kwargs):
-    if "timeline_tweets" in agent.state and agent.state["timeline_tweets"] is not None and len(agent.state["timeline_tweets"]) > 0:
+    if "timeline_tweets" in agent.state and agent.state["timeline_tweets"] is not None and len(
+            agent.state["timeline_tweets"]) > 0:
         tweet = agent.state["timeline_tweets"].pop(0)
         tweet_id = tweet.get('id')
         if not tweet_id:
@@ -103,6 +112,7 @@ def respond_to_mentions(agent, **kwargs):  # REQUIRES TWITTER PREMIUM PLAN
     processing_thread.daemon = True
     processing_thread.start()
 
+
 @register_action("get-mentioned-tweets")
 def get_mentioned_tweets(agent, **kwargs):
     agent.logger.info("\n📝 Retrieving mentioned tweets")
@@ -119,15 +129,38 @@ def get_mentioned_tweets(agent, **kwargs):
         tweet_id = tweet.get('id')
         tweet_text = tweet.get('text')
         tweet_author = tweet.get('author_id')
+        tweet_username = tweet.get('username')
         if agent.connection_manager.perform_action(
-            connection_name="supabase",
-            action_name="check-subscribed-user",
-            params=[tweet_author]
+                connection_name="supabase",
+                action_name="check-subscribed-user",
+                params=[tweet_author]
         ):
             selected_tweets.append({
                 "tweet_id": tweet_id,
-                "text": tweet_text
+                "text": tweet_text,
+                "username": tweet_username
             })
 
     agent.logger.info("\n✅ Tweets retrieved successfully!")
     return selected_tweets
+
+
+@register_action("deploy-token")
+def deploy_token(agent, **kwargs):
+    agent.logger.info("\n📝 Deploying token")
+    print_h_bar()
+    url = f"{DEPLOY_TOKEN_URL}api/memecoin/create-for-user"
+
+    tweets = get_mentioned_tweets(agent, **kwargs)
+
+    responses = []
+    for tweet in tweets:
+        data = {
+            "isTwitter": True,
+            "twitterHandle": tweet.get('username'),
+            "input": tweet.get('text'),
+        }
+        response = requests.post(url, data=data)
+        responses.append(response.json())
+    agent.logger.info("\n✅ Deploy token successfully!")
+    return responses
