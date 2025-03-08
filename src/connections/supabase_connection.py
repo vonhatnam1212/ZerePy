@@ -140,6 +140,14 @@ class SupabaseConnection(BaseConnection):
                                     "The input mint address of the token"),
                 ],
                 description="List all trades for a specific token"
+            ),
+            "check-subscribed-user": Action(
+                name="check-subscribed-user",
+                parameters=[
+                    ActionParameter("user_id", True, str,
+                                    "User id to check if subscribed"),
+                ],
+                description="Returns True if user is subscribed"
             )
         }
 
@@ -207,5 +215,20 @@ class SupabaseConnection(BaseConnection):
             response = client.table('tokens').select(
                 '*').eq('chain_id', chain_id).order("price", desc=True).limit(10).execute()
             return response.data
+        except Exception as e:
+            raise SupabaseAPIError(f"Query failed: {e}")
+
+    def check_subscribed_user(self, user_id: str) -> bool:
+        """Get user mentions"""
+        try:
+            client = self._get_client()
+
+            response = client.table('x_users') \
+                .select('account_id') \
+                .eq('user_id', user_id) \
+                .eq('is_active', True) \
+                .execute()
+
+            return len(response.data) > 0
         except Exception as e:
             raise SupabaseAPIError(f"Query failed: {e}")

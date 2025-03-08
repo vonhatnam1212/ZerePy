@@ -103,11 +103,31 @@ def respond_to_mentions(agent, **kwargs):  # REQUIRES TWITTER PREMIUM PLAN
     processing_thread.daemon = True
     processing_thread.start()
 
+@register_action("get-mentioned-tweets")
+def get_mentioned_tweets(agent, **kwargs):
+    agent.logger.info("\n📝 Retrieving mentioned tweets")
+    print_h_bar()
 
-@register_action("gen-token-with-tweet")
-def gen_token_with_tweet(agent, **kwargs):
-    return agent.connection_manager.perform_action(
+    tweets = agent.connection_manager.perform_action(
         connection_name="twitter",
-        action_name="gen-token-with-tweet",
-        params=[]
+        action_name="get-mentioned-tweets",
     )
+
+    selected_tweets = []
+
+    for tweet in tweets:
+        tweet_id = tweet.get('id')
+        tweet_text = tweet.get('text')
+        tweet_author = tweet.get('author_id')
+        if agent.connection_manager.perform_action(
+            connection_name="supabase",
+            action_name="check-subscribed-user",
+            params=[tweet_author]
+        ):
+            selected_tweets.append({
+                "tweet_id": tweet_id,
+                "text": tweet_text
+            })
+
+    agent.logger.info("\n✅ Tweets retrieved successfully!")
+    return selected_tweets
