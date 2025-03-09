@@ -139,7 +139,7 @@ class ZerePyAgent:
         logger.info("Press Ctrl+C at any time to stop the loop.")
         print_h_bar()
 
-        logger.info(f"System prompt: {system_prompt}")
+        # logger.info(f"System prompt: {system_prompt}")
 
         time.sleep(2)
         logger.info("Starting loop in 5 seconds...")
@@ -149,55 +149,59 @@ class ZerePyAgent:
         try:
             while True:
                 success = False
-                try:
-                    n_calls, n_badcalls = 0, 0
-                    self.steps = 0
-                    self.answer = None
-                    prompt = ""
-                    for i in range(1, 5):
-                        n_calls += 1
-                        thought_action = self.prompt_llm(prompt=prompt + f"Thought {i}:",
-                                                         system_prompt=system_prompt,
-                                                         stop=[f"Observation {i}:"])
-                        logger.info(f"thought_action {thought_action}...")
-                        try:
-                            thought, action_name = thought_action.strip().split(
-                                f"Action {i}:")
-                            action_name = action_name.strip()
-                        except:
-                            logger.info(f'ohh... {thought_action}')
-                            n_badcalls += 1
+                if self.name == "DeployTokenAgent":
+                    execute_action(self, "deploy-token")
+                    success = True
+                else:
+                    try:
+                        n_calls, n_badcalls = 0, 0
+                        self.steps = 0
+                        self.answer = None
+                        prompt = ""
+                        for i in range(1, 5):
                             n_calls += 1
-                            thought = thought_action.strip().split('\n')[0]
-                            action_name = self.prompt_llm(prompt=prompt + f"Thought {i}: {thought}\nAction {i}:",
-                                                          system_prompt=system_prompt,
-                                                          stop=[f"\n"]).strip()
+                            thought_action = self.prompt_llm(prompt=prompt + f"Thought {i}:",
+                                                            system_prompt=system_prompt,
+                                                            stop=[f"Observation {i}:"])
+                            logger.info(f"thought_action {thought_action}...")
+                            try:
+                                thought, action_name = thought_action.strip().split(
+                                    f"Action {i}:")
+                                action_name = action_name.strip()
+                            except:
+                                logger.info(f'ohh... {thought_action}')
+                                n_badcalls += 1
+                                n_calls += 1
+                                thought = thought_action.strip().split('\n')[0]
+                                action_name = self.prompt_llm(prompt=prompt + f"Thought {i}: {thought}\nAction {i}:",
+                                                            system_prompt=system_prompt,
+                                                            stop=[f"\n"]).strip()
+                            logger.info(
+                                f"action_name {action_name[0], action_name[0].lower(), action_name[1:]}...")
+                            obs, r, done, info = self.env(
+                                action_name[0].lower() + action_name[1:])
+                            logger.info(f"return env {obs, r, done, info}...")
+                            step_str = f"Thought {i}: {thought}\nAction {i}: {action_name}\nObservation {i}: {obs}\n"
+                            prompt += step_str
+                            logger.info(f"{prompt}...")
+                            if done:
+                                break
+                        if not done:
+                            obs, r, done, info = self.env("finish[]")
+                        task_exists = any(action['name'] == 'post-tweet' for action in self.tasks)
+                        if task_exists:
+                            logger.info(f"post-tweet started ...")
+                            execute_action(self, "post-tweet")
                         logger.info(
-                            f"action_name {action_name[0], action_name[0].lower(), action_name[1:]}...")
-                        obs, r, done, info = self.env(
-                            action_name[0].lower() + action_name[1:])
-                        logger.info(f"return env {obs, r, done, info}...")
-                        step_str = f"Thought {i}: {thought}\nAction {i}: {action_name}\nObservation {i}: {obs}\n"
-                        prompt += step_str
-                        logger.info(f"{prompt}...")
-                        if done:
-                            break
-                    if not done:
-                        obs, r, done, info = self.env("finish[]")
-                    task_exists = any(action['name'] == 'post-tweet' for action in self.tasks)
-                    if task_exists:
-                        logger.info(f"post-tweet started ...")
-                        execute_action(self, "post-tweet")
-                    logger.info(
-                        f"\n⏳ Waiting {self.loop_delay} seconds before next loop...")
-                    print_h_bar()
-                    time.sleep(self.loop_delay if success else 60)
-
-                except Exception as e:
-                    logger.error(f"\n❌ Error in agent loop iteration: {e}")
-                    logger.info(
-                        f"⏳ Waiting {self.loop_delay} seconds before retrying...")
-                    time.sleep(self.loop_delay)
+                            f"\n⏳ Waiting {self.loop_delay} seconds before next loop...")
+                        print_h_bar()
+                        time.sleep(self.loop_delay if success else 60)
+    
+                    except Exception as e:
+                        logger.error(f"\n❌ Error in agent loop iteration: {e}")
+                        logger.info(
+                            f"⏳ Waiting {self.loop_delay} seconds before retrying...")
+                        time.sleep(self.loop_delay)
         except KeyboardInterrupt:
             logger.info("\n🛑 Agent loop stopped by user.")
             return

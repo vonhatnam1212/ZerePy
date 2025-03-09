@@ -5,6 +5,7 @@ from src.prompts import REPLY_TWEET_PROMPT
 import requests
 import os
 from dotenv import load_dotenv
+import json
 
 load_dotenv()
 
@@ -121,6 +122,7 @@ def get_mentioned_tweets(agent, **kwargs):
     tweets = agent.connection_manager.perform_action(
         connection_name="twitter",
         action_name="get-mentioned-tweets",
+        params=[]
     )
 
     selected_tweets = []
@@ -128,6 +130,8 @@ def get_mentioned_tweets(agent, **kwargs):
     for tweet in tweets:
         tweet_id = tweet.get('id')
         tweet_text = tweet.get('text')
+        agent.logger.info(f"Processing tweet: {tweet.get('text')}")
+
         tweet_author = tweet.get('author_id')
         tweet_username = tweet.get('username')
         if agent.connection_manager.perform_action(
@@ -149,18 +153,63 @@ def get_mentioned_tweets(agent, **kwargs):
 def deploy_token(agent, **kwargs):
     agent.logger.info("\n📝 Deploying token")
     print_h_bar()
-    url = f"{DEPLOY_TOKEN_URL}api/memecoin/create-for-user"
+    # url = f"{DEPLOY_TOKEN_URL}api/memecoin/create-for-user"
 
-    tweets = get_mentioned_tweets(agent, **kwargs)
+    # tweets = get_mentioned_tweets(agent, **kwargs)
+
+    tweets = [
+        {
+            "user_id": "2566404774",
+            "tweet_id": "1898768075333435659",
+            "username": "RoxorLeo",
+            "text": "@RoxorLeo Create a meme token about cats"
+        }
+    ]
 
     responses = []
     for tweet in tweets:
-        data = {
-            "isTwitter": True,
-            "twitterHandle": tweet.get('username'),
-            "input": tweet.get('text'),
+        # data = {
+        #     "isTwitter": True,
+        #     "twitterHandle": tweet.get('username'),
+        #     "input": tweet.get('text'),
+        # }
+        # response = requests.post(url, data=data)
+        response = {
+            "success": True,
+            "message": "Token created successfully",
+            "transactionHash": "0x0b44610182edfb449248456ed0e0bf0b13cb12ccda2a143d139f1c663e8ec4a",
+            "tokenAddress": "0xE4917899728432952F4dbcE1C526700312fE239e",
+            "redirectUrl": "http://localhost:3000/token/0xE4917899728432952F4dbcE1C526700312fE239e",
+            "tokenDetails": {
+                "name": "ToMJ",
+                "symbol": "TJ",
+                "description": (
+                    "ToMJ is a token that combines the timeless magic of cartoon classics with the excitement of decentralized "
+                    "finance. Its vision is to bring together nostalgic fans and forward-thinking investors to build a "
+                    "community-driven ecosystem. The token will be used to govern and incentivize contributions to the platform."
+                ),
+                "imageUrl": "https://gateway.pinata.cloud/ipfs/bafybeickti2g27cgv2kulpa37x5sakldw1rk6x5ah6szoq3ja5pmnpdd",
+                "metadataURI": "https://gateway.pinata.cloud/ipfs/bafkreibuytmrvk5qw75jk3d42b2qnyyywp2adc7y3fehicwbf2lnaq4feu"
+            }
         }
-        response = requests.post(url, data=data)
-        responses.append(response.json())
-    agent.logger.info("\n✅ Deploy token successfully!")
-    return responses
+        agent.logger.info("\n✅ Deploy token successfully!")
+
+        # Generate natural language reponse given the json data
+        llm_tweet = agent.prompt_llm(prompt="Generate a tweet given the response under 40 words", system_prompt=json.dumps(response))
+        agent.logger.info(f"\n📝 Generated response: {llm_tweet}")
+        responses.append({
+            "tweet_id": tweet.get('tweet_id'),
+            "response": llm_tweet
+        })
+
+    # json response -> reply to tweet
+    for response in responses:
+        tweet_id = response['tweet_id']
+        reply_text = response['response']
+        agent.connection_manager.perform_action(
+            connection_name="twitter",
+            action_name="reply-to-tweet",
+            params=[tweet_id, reply_text]
+        )
+        agent.logger.info(f"\n🚀 Posting reply: '{reply_text}'")
+    return
